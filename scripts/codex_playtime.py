@@ -8,9 +8,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-DEFAULT_IDLE_MINUTES = 10
-
-
 @dataclass
 class SessionEvent:
     timestamp: datetime
@@ -93,8 +90,7 @@ def read_events(codex_home: Path) -> list[SessionEvent]:
     return sorted(events, key=lambda event: event.timestamp)
 
 
-def summarize(events: list[SessionEvent], idle_minutes: int):
-    idle_seconds = idle_minutes * 60
+def summarize(events: list[SessionEvent]):
     by_thread: dict[str, float] = defaultdict(float)
     names: dict[str, str] = {}
     by_project: dict[str, float] = defaultdict(float)
@@ -107,7 +103,7 @@ def summarize(events: list[SessionEvent], idle_minutes: int):
     for thread_id, thread_events in grouped.items():
         for current, next_event in zip(thread_events, thread_events[1:]):
             gap = (next_event.timestamp - current.timestamp).total_seconds()
-            if 0 <= gap <= idle_seconds:
+            if gap >= 0:
                 by_thread[thread_id] += gap
                 if current.cwd:
                     by_project[current.cwd] += gap
@@ -124,17 +120,16 @@ def format_duration(seconds: float) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Estimate active time in Codex session logs.")
+    parser = argparse.ArgumentParser(description="Estimate runtime in Codex session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
-    parser.add_argument("--idle-minutes", type=int, default=DEFAULT_IDLE_MINUTES)
     parser.add_argument("--limit", type=int, default=10)
     args = parser.parse_args()
 
     events = read_events(Path(args.codex_home))
-    names, by_thread, by_project = summarize(events, args.idle_minutes)
+    names, by_thread, by_project = summarize(events)
 
     total = sum(by_thread.values())
-    print(f"Total active Codex time: {format_duration(total)}")
+    print(f"Total Codex runtime: {format_duration(total)}")
     print()
     print("Top chats:")
     for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
