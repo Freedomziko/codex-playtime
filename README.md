@@ -2,9 +2,9 @@
 
 track how long youve vibe coded innit
 
-Small tools for checking how long Codex chats and projects have been running.
+Small tools for checking how long Codex has spent working in chats and projects.
 
-The basic idea is to read local Codex session logs, group events by thread, and add up the time between events.
+The basic idea is to read local Codex session logs, find completed Codex turns, and add up their recorded runtime.
 
 ## First target
 
@@ -15,10 +15,9 @@ The basic idea is to read local Codex session logs, group events by thread, and 
 
 ## Rough method
 
-Count the gap between nearby events in the same chat.
+Count each completed Codex task using the duration recorded in the local session log.
 
 ```text
-event at 10:00
-event at 10:04 -> count 4 minutes
-event at 13:30 -> count the full gap
+task_complete duration_ms: 102956 -> count 1m 43s
+task_complete duration_ms: 7200000 -> count 2h
 ```

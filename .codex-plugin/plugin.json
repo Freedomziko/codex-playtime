@@ -1,0 +1,33 @@
+{
+  "name": "codex-playtime",
+  "version": "0.1.0",
+  "description": "Track Codex task runtime from local session logs.",
+  "author": {
+    "name": "Freedomziko",
+    "url": "https://github.com/Freedomziko"
+  },
+  "homepage": "https://github.com/Freedomziko/codex-playtime",
+  "repository": "https://github.com/Freedomziko/codex-playtime",
+  "keywords": [
+    "codex",
+    "time-tracking",
+    "stats"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Playtime",
+    "shortDescription": "Show Codex runtime stats from local logs.",
+    "longDescription": "Codex Playtime reads local Codex session logs and summarizes task runtime by chat and project.",
+    "developerName": "Freedomziko",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Show my Codex playtime stats",
+      "Show Codex hours by chat",
+      "Show Codex hours by project"
+    ],
+    "brandColor": "#2563EB"
+  }
+}
