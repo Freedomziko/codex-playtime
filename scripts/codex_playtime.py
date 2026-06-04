@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -34,7 +35,7 @@ def read_thread_names(codex_home: Path) -> dict[str, str]:
     with index_path.open("r", encoding="utf-8", errors="replace") as handle:
         for line in handle:
             try:
-                item = json.loads(line)
+                item = json.loads(line.lstrip("\ufeff"))
             except json.JSONDecodeError:
                 continue
             thread_id = item.get("id")
@@ -57,7 +58,7 @@ def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[
         with path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 try:
-                    item = json.loads(line)
+                    item = json.loads(line.lstrip("\ufeff"))
                 except json.JSONDecodeError:
                     continue
 
@@ -114,10 +115,49 @@ def format_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
+def build_report(
+    names: dict[str, str],
+    by_thread: dict[str, float],
+    by_project: dict[str, float],
+    limit: int,
+) -> dict[str, Any]:
+    total = sum(by_thread.values())
+
+    top_chats = [
+        {
+            "thread_id": thread_id,
+            "name": names.get(thread_id, thread_id),
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+    top_projects = [
+        {
+            "cwd": cwd,
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+
+    return {
+        "total_seconds": total,
+        "total_duration": format_duration(total),
+        "top_chats": top_chats,
+        "top_projects": top_projects,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the summary as JSON for scripts or dashboards.",
+    )
     parser.add_argument(
         "--no-archived",
         action="store_true",
@@ -127,18 +167,22 @@ def main() -> int:
 
     runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
     names, by_thread, by_project = summarize(runtimes)
+    report = build_report(names, by_thread, by_project, args.limit)
 
-    total = sum(by_thread.values())
-    print(f"Total Codex task runtime: {format_duration(total)}")
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print(f"Total Codex task runtime: {report['total_duration']}")
     print()
     print("Top chats:")
-    for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {names.get(thread_id, thread_id)}: {format_duration(seconds)}")
+    for chat in report["top_chats"]:
+        print(f"- {chat['name']}: {chat['duration']}")
 
     print()
     print("Top projects:")
-    for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {cwd}: {format_duration(seconds)}")
+    for project in report["top_projects"]:
+        print(f"- {project['cwd']}: {project['duration']}")
 
     return 0
 
