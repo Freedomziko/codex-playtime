@@ -15,11 +15,14 @@ class TaskRuntime:
     seconds: float
 
 
-def iter_session_files(codex_home: Path):
-    sessions_dir = codex_home / "sessions"
-    if not sessions_dir.exists():
-        return
-    yield from sessions_dir.rglob("*.jsonl")
+def iter_session_files(codex_home: Path, include_archived: bool = True):
+    session_roots = [codex_home / "sessions"]
+    if include_archived:
+        session_roots.append(codex_home / "archived_sessions")
+
+    for sessions_dir in session_roots:
+        if sessions_dir.exists():
+            yield from sessions_dir.rglob("*.jsonl")
 
 
 def read_thread_names(codex_home: Path) -> dict[str, str]:
@@ -42,11 +45,11 @@ def read_thread_names(codex_home: Path) -> dict[str, str]:
     return names
 
 
-def read_task_runtimes(codex_home: Path) -> list[TaskRuntime]:
+def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[TaskRuntime]:
     runtimes: list[TaskRuntime] = []
     indexed_names = read_thread_names(codex_home)
 
-    for path in iter_session_files(codex_home):
+    for path in iter_session_files(codex_home, include_archived=include_archived):
         thread_id = ""
         thread_name = path.stem
         cwd = ""
@@ -115,9 +118,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--no-archived",
+        action="store_true",
+        help="Only scan active sessions and skip archived_sessions.",
+    )
     args = parser.parse_args()
 
-    runtimes = read_task_runtimes(Path(args.codex_home))
+    runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
     names, by_thread, by_project = summarize(runtimes)
 
     total = sum(by_thread.values())
