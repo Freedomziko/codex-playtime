@@ -4,6 +4,7 @@ import argparse
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -13,6 +14,17 @@ class TaskRuntime:
     thread_name: str
     cwd: str
     seconds: float
+    completed_on: date | None
+
+
+def parse_log_date(value: object) -> date | None:
+    if not isinstance(value, str):
+        return None
+
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
 
 
 def iter_session_files(codex_home: Path, include_archived: bool = True):
@@ -86,6 +98,7 @@ def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[
                                 thread_name=thread_name,
                                 cwd=cwd,
                                 seconds=duration_ms / 1000,
+                                completed_on=parse_log_date(item.get("timestamp")),
                             )
                         )
 
@@ -114,10 +127,22 @@ def format_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
+def parse_since(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from exc
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--since",
+        type=parse_since,
+        help="Only count completed tasks dated on or after YYYY-MM-DD.",
+    )
     parser.add_argument(
         "--no-archived",
         action="store_true",
@@ -126,6 +151,12 @@ def main() -> int:
     args = parser.parse_args()
 
     runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
+    if args.since:
+        runtimes = [
+            runtime
+            for runtime in runtimes
+            if runtime.completed_on is not None and runtime.completed_on >= args.since
+        ]
     names, by_thread, by_project = summarize(runtimes)
 
     total = sum(by_thread.values())

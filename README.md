@@ -52,8 +52,16 @@ If you only want active sessions and want to skip archived sessions:
 python .\scripts\codex_playtime.py --no-archived
 ```
 
+If you only want tasks completed on or after a date:
+
+```powershell
+python .\scripts\codex_playtime.py --since 2026-06-01
+```
+
 If Windows says Python was not found, install Python from [python.org](https://www.python.org/downloads/) or disable the Microsoft Store Python alias in Windows app execution aliases.
 
 ## What it counts
 
 `codex-playtime` sums Codex's recorded `task_complete.duration_ms` values from local session logs. That means it counts completed Codex task runtime, not total wall-clock time while a chat tab is open.
+
+When `--since` is used, entries without a parseable session timestamp are skipped because they cannot be dated safely.
