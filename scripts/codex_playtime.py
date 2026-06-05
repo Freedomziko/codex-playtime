@@ -114,10 +114,21 @@ def format_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
+def parse_limit(value: str) -> int:
+    try:
+        limit = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected a non-negative integer") from exc
+
+    if limit < 0:
+        raise argparse.ArgumentTypeError("expected a non-negative integer")
+    return limit
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=parse_limit, default=10, help="Number of chats and projects to show.")
     parser.add_argument(
         "--no-archived",
         action="store_true",
