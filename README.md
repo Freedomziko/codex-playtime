@@ -40,6 +40,16 @@ python3 ./scripts/codex_playtime.py
 
 The script reads your local Codex data from `~/.codex` by default. It scans both active sessions and archived sessions, then prints total runtime, top chats, and top projects.
 
+To focus on recent work, add a date filter:
+
+```powershell
+python .\scripts\codex_playtime.py --today
+python .\scripts\codex_playtime.py --week
+python .\scripts\codex_playtime.py --since 2026-06-01
+```
+
+Date filters count tasks completed on or after the selected local date.
+
 If your Codex home is somewhere else:
 
 ```powershell

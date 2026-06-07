@@ -4,6 +4,7 @@ import argparse
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -13,6 +14,7 @@ class TaskRuntime:
     thread_name: str
     cwd: str
     seconds: float
+    completed_on: date | None
 
 
 def iter_session_files(codex_home: Path, include_archived: bool = True):
@@ -45,7 +47,34 @@ def read_thread_names(codex_home: Path) -> dict[str, str]:
     return names
 
 
-def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[TaskRuntime]:
+def parse_event_date(item: dict) -> date | None:
+    payload = item.get("payload") or {}
+    timestamp = (
+        item.get("timestamp")
+        or item.get("time")
+        or item.get("ts")
+        or payload.get("timestamp")
+        or payload.get("time")
+        or payload.get("ts")
+    )
+
+    if not isinstance(timestamp, str):
+        return None
+
+    try:
+        return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).astimezone().date()
+    except ValueError:
+        return None
+
+
+def parse_since(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from exc
+
+
+def read_task_runtimes(codex_home: Path, include_archived: bool = True, since: date | None = None) -> list[TaskRuntime]:
     runtimes: list[TaskRuntime] = []
     indexed_names = read_thread_names(codex_home)
 
@@ -80,12 +109,16 @@ def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[
                 if item_type == "event_msg" and payload.get("type") == "task_complete":
                     duration_ms = payload.get("duration_ms")
                     if isinstance(duration_ms, (int, float)) and duration_ms >= 0:
+                        completed_on = parse_event_date(item)
+                        if since and (completed_on is None or completed_on < since):
+                            continue
                         runtimes.append(
                             TaskRuntime(
                                 thread_id=thread_id or path.stem,
                                 thread_name=thread_name,
                                 cwd=cwd,
                                 seconds=duration_ms / 1000,
+                                completed_on=completed_on,
                             )
                         )
 
@@ -123,13 +156,31 @@ def main() -> int:
         action="store_true",
         help="Only scan active sessions and skip archived_sessions.",
     )
+    date_filter = parser.add_mutually_exclusive_group()
+    date_filter.add_argument("--today", action="store_true", help="Only count tasks completed today.")
+    date_filter.add_argument(
+        "--week",
+        action="store_true",
+        help="Only count tasks completed since Monday of the current week.",
+    )
+    date_filter.add_argument("--since", type=parse_since, help="Only count tasks completed on or after YYYY-MM-DD.")
     args = parser.parse_args()
 
-    runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
+    today = datetime.now().astimezone().date()
+    since = None
+    if args.today:
+        since = today
+    elif args.week:
+        since = today.fromordinal(today.toordinal() - today.weekday())
+    elif args.since:
+        since = args.since
+
+    runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived, since=since)
     names, by_thread, by_project = summarize(runtimes)
 
     total = sum(by_thread.values())
-    print(f"Total Codex task runtime: {format_duration(total)}")
+    label = f" since {since.isoformat()}" if since else ""
+    print(f"Total Codex task runtime{label}: {format_duration(total)}")
     print()
     print("Top chats:")
     for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
