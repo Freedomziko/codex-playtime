@@ -4,6 +4,7 @@ import argparse
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -13,6 +14,7 @@ class TaskRuntime:
     thread_name: str
     cwd: str
     seconds: float
+    completed_at: datetime | None
 
 
 def iter_session_files(codex_home: Path, include_archived: bool = True):
@@ -43,6 +45,16 @@ def read_thread_names(codex_home: Path) -> dict[str, str]:
                 names[thread_id] = thread_name
 
     return names
+
+
+def parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[TaskRuntime]:
@@ -86,6 +98,7 @@ def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[
                                 thread_name=thread_name,
                                 cwd=cwd,
                                 seconds=duration_ms / 1000,
+                                completed_at=parse_timestamp(item.get("timestamp")),
                             )
                         )
 
@@ -104,6 +117,26 @@ def summarize(runtimes: list[TaskRuntime]):
             by_project[runtime.cwd] += runtime.seconds
 
     return names, by_thread, by_project
+
+
+def summarize_recent(runtimes: list[TaskRuntime], now: datetime | None = None) -> tuple[float, float]:
+    now = now or datetime.now().astimezone()
+    today = now.date()
+    week_start = now - timedelta(days=7)
+    today_total = 0.0
+    week_total = 0.0
+
+    for runtime in runtimes:
+        if runtime.completed_at is None:
+            continue
+
+        completed_at = runtime.completed_at.astimezone(now.tzinfo)
+        if completed_at.date() == today:
+            today_total += runtime.seconds
+        if completed_at >= week_start:
+            week_total += runtime.seconds
+
+    return today_total, week_total
 
 
 def format_duration(seconds: float) -> str:
@@ -130,6 +163,9 @@ def main() -> int:
 
     total = sum(by_thread.values())
     print(f"Total Codex task runtime: {format_duration(total)}")
+    today_total, week_total = summarize_recent(runtimes)
+    print(f"Today: {format_duration(today_total)}")
+    print(f"Last 7 days: {format_duration(week_total)}")
     print()
     print("Top chats:")
     for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:

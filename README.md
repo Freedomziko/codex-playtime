@@ -38,7 +38,7 @@ On macOS or Linux, the command is usually:
 python3 ./scripts/codex_playtime.py
 ```
 
-The script reads your local Codex data from `~/.codex` by default. It scans both active sessions and archived sessions, then prints total runtime, top chats, and top projects.
+The script reads your local Codex data from `~/.codex` by default. It scans both active sessions and archived sessions, then prints total runtime, today's runtime, last 7 days runtime, top chats, and top projects.
 
 If your Codex home is somewhere else:
 

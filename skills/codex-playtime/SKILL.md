@@ -17,7 +17,7 @@ python .\scripts\codex_playtime.py
 
 If `python` points to the Microsoft Store alias or is unavailable, use the Codex desktop bundled Python from `codex_app.load_workspace_dependencies`.
 
-2. Summarize the output for the user. The default count includes both active `sessions` and `archived_sessions`.
+2. Summarize the output for the user. The default count includes both active `sessions` and `archived_sessions`, and the output includes all-time, today, and last 7 days totals.
 
 3. If the user questions the numbers, explain that the script sums Codex's recorded `task_complete.duration_ms` values from local session logs. This counts completed Codex task runtime, not wall-clock time between unrelated messages.
 
