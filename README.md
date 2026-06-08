@@ -52,6 +52,12 @@ If you only want active sessions and want to skip archived sessions:
 python .\scripts\codex_playtime.py --no-archived
 ```
 
+For scripting or automation, print the same summary as JSON:
+
+```powershell
+python .\scripts\codex_playtime.py --json
+```
+
 If Windows says Python was not found, install Python from [python.org](https://www.python.org/downloads/) or disable the Microsoft Store Python alias in Windows app execution aliases.
 
 ## What it counts

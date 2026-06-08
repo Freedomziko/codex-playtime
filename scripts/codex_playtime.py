@@ -114,10 +114,45 @@ def format_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
+def build_report(runtimes: list[TaskRuntime], limit: int) -> dict:
+    names, by_thread, by_project = summarize(runtimes)
+    total = sum(by_thread.values())
+
+    chats = [
+        {
+            "id": thread_id,
+            "name": names.get(thread_id, thread_id),
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+    projects = [
+        {
+            "cwd": cwd,
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+
+    return {
+        "total_seconds": total,
+        "total_duration": format_duration(total),
+        "chats": chats,
+        "projects": projects,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the summary as JSON for scripting.",
+    )
     parser.add_argument(
         "--no-archived",
         action="store_true",
@@ -126,19 +161,22 @@ def main() -> int:
     args = parser.parse_args()
 
     runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
-    names, by_thread, by_project = summarize(runtimes)
+    report = build_report(runtimes, args.limit)
 
-    total = sum(by_thread.values())
-    print(f"Total Codex task runtime: {format_duration(total)}")
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    print(f"Total Codex task runtime: {report['total_duration']}")
     print()
     print("Top chats:")
-    for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {names.get(thread_id, thread_id)}: {format_duration(seconds)}")
+    for chat in report["chats"]:
+        print(f"- {chat['name']}: {chat['duration']}")
 
     print()
     print("Top projects:")
-    for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {cwd}: {format_duration(seconds)}")
+    for project in report["projects"]:
+        print(f"- {project['cwd']}: {project['duration']}")
 
     return 0
 
