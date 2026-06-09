@@ -130,6 +130,12 @@ def main() -> int:
 
     total = sum(by_thread.values())
     print(f"Total Codex task runtime: {format_duration(total)}")
+    if not runtimes:
+        print()
+        print(f"No completed Codex tasks found in {Path(args.codex_home).expanduser()}.")
+        print("Codex records runtime after a task completes with a task_complete event.")
+        return 0
+
     print()
     print("Top chats:")
     for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
