@@ -4,6 +4,7 @@ import argparse
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 
@@ -13,6 +14,37 @@ class TaskRuntime:
     thread_name: str
     cwd: str
     seconds: float
+    completed_at: datetime | None = None
+
+
+def parse_session_timestamp(value: object) -> datetime | None:
+    if isinstance(value, (int, float)):
+        seconds = value / 1000 if value > 10_000_000_000 else value
+        return datetime.fromtimestamp(seconds).astimezone()
+
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.removesuffix("Z") + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=datetime.now().astimezone().tzinfo)
+    return parsed
+
+
+def start_of_local_day(day: date) -> datetime:
+    return datetime.combine(day, time.min, tzinfo=datetime.now().astimezone().tzinfo)
+
+
+def parse_since_date(value: str) -> datetime:
+    try:
+        return start_of_local_day(date.fromisoformat(value))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected date in YYYY-MM-DD format") from exc
 
 
 def iter_session_files(codex_home: Path, include_archived: bool = True):
@@ -45,7 +77,11 @@ def read_thread_names(codex_home: Path) -> dict[str, str]:
     return names
 
 
-def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[TaskRuntime]:
+def read_task_runtimes(
+    codex_home: Path,
+    include_archived: bool = True,
+    since: datetime | None = None,
+) -> list[TaskRuntime]:
     runtimes: list[TaskRuntime] = []
     indexed_names = read_thread_names(codex_home)
 
@@ -80,12 +116,16 @@ def read_task_runtimes(codex_home: Path, include_archived: bool = True) -> list[
                 if item_type == "event_msg" and payload.get("type") == "task_complete":
                     duration_ms = payload.get("duration_ms")
                     if isinstance(duration_ms, (int, float)) and duration_ms >= 0:
+                        completed_at = parse_session_timestamp(item.get("timestamp") or payload.get("timestamp"))
+                        if since and (not completed_at or completed_at < since):
+                            continue
                         runtimes.append(
                             TaskRuntime(
                                 thread_id=thread_id or path.stem,
                                 thread_name=thread_name,
                                 cwd=cwd,
                                 seconds=duration_ms / 1000,
+                                completed_at=completed_at,
                             )
                         )
 
@@ -118,6 +158,23 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    date_filter = parser.add_mutually_exclusive_group()
+    date_filter.add_argument(
+        "--since",
+        type=parse_since_date,
+        metavar="YYYY-MM-DD",
+        help="Only count completed tasks recorded on or after this local date.",
+    )
+    date_filter.add_argument(
+        "--today",
+        action="store_true",
+        help="Only count completed tasks recorded today.",
+    )
+    date_filter.add_argument(
+        "--week",
+        action="store_true",
+        help="Only count completed tasks recorded since Monday this week.",
+    )
     parser.add_argument(
         "--no-archived",
         action="store_true",
@@ -125,7 +182,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived)
+    today = datetime.now().astimezone().date()
+    since = args.since
+    if args.today:
+        since = start_of_local_day(today)
+    elif args.week:
+        since = start_of_local_day(today - timedelta(days=today.weekday()))
+
+    runtimes = read_task_runtimes(Path(args.codex_home), include_archived=not args.no_archived, since=since)
     names, by_thread, by_project = summarize(runtimes)
 
     total = sum(by_thread.values())

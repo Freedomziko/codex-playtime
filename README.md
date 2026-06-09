@@ -52,6 +52,14 @@ If you only want active sessions and want to skip archived sessions:
 python .\scripts\codex_playtime.py --no-archived
 ```
 
+To focus the report on recent completed work:
+
+```powershell
+python .\scripts\codex_playtime.py --today
+python .\scripts\codex_playtime.py --week
+python .\scripts\codex_playtime.py --since 2026-06-01
+```
+
 If Windows says Python was not found, install Python from [python.org](https://www.python.org/downloads/) or disable the Microsoft Store Python alias in Windows app execution aliases.
 
 ## What it counts
