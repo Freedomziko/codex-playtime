@@ -20,6 +20,7 @@ Count each completed Codex task using the duration recorded in the local session
 ```text
 task_complete duration_ms: 102956 -> count 1m 43s
 task_complete duration_ms: 7200000 -> count 2h
+task_complete duration_ms: 45000 -> count 45s
 ```
 
 ## Run it
@@ -57,3 +58,5 @@ If Windows says Python was not found, install Python from [python.org](https://w
 ## What it counts
 
 `codex-playtime` sums Codex's recorded `task_complete.duration_ms` values from local session logs. That means it counts completed Codex task runtime, not total wall-clock time while a chat tab is open.
+
+Durations shorter than one minute are shown in seconds so short completed tasks do not appear as `0m`.

@@ -107,11 +107,18 @@ def summarize(runtimes: list[TaskRuntime]):
 
 
 def format_duration(seconds: float) -> str:
-    minutes = round(seconds / 60)
+    total_seconds = round(seconds)
+    minutes, secs = divmod(total_seconds, 60)
     hours, mins = divmod(minutes, 60)
     if hours:
-        return f"{hours}h {mins}m"
-    return f"{mins}m"
+        if mins:
+            return f"{hours}h {mins}m"
+        return f"{hours}h"
+    if mins:
+        if secs:
+            return f"{mins}m {secs}s"
+        return f"{mins}m"
+    return f"{secs}s"
 
 
 def main() -> int:
