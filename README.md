@@ -52,6 +52,14 @@ If you only want active sessions and want to skip archived sessions:
 python .\scripts\codex_playtime.py --no-archived
 ```
 
+If you want machine-readable output for another script or automation:
+
+```powershell
+python .\scripts\codex_playtime.py --json
+```
+
+JSON output includes total seconds, formatted total duration, completed task count, top chats, and top projects.
+
 If Windows says Python was not found, install Python from [python.org](https://www.python.org/downloads/) or disable the Microsoft Store Python alias in Windows app execution aliases.
 
 ## What it counts
