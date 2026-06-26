@@ -114,10 +114,39 @@ def format_duration(seconds: float) -> str:
     return f"{mins}m"
 
 
+def ranked_threads(names: dict[str, str], by_thread: dict[str, float], limit: int):
+    return [
+        {
+            "thread_id": thread_id,
+            "thread_name": names.get(thread_id, thread_id),
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+
+
+def ranked_projects(by_project: dict[str, float], limit: int):
+    return [
+        {
+            "cwd": cwd,
+            "seconds": seconds,
+            "duration": format_duration(seconds),
+        }
+        for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[:limit]
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Estimate Codex task runtime from local session logs.")
     parser.add_argument("--codex-home", default=str(Path.home() / ".codex"))
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Print machine-readable JSON instead of the human summary.",
+    )
     parser.add_argument(
         "--no-archived",
         action="store_true",
@@ -129,6 +158,24 @@ def main() -> int:
     names, by_thread, by_project = summarize(runtimes)
 
     total = sum(by_thread.values())
+    top_chats = ranked_threads(names, by_thread, args.limit)
+    top_projects = ranked_projects(by_project, args.limit)
+
+    if args.json_output:
+        print(
+            json.dumps(
+                {
+                    "total_seconds": total,
+                    "total_duration": format_duration(total),
+                    "task_count": len(runtimes),
+                    "top_chats": top_chats,
+                    "top_projects": top_projects,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
     print(f"Total Codex task runtime: {format_duration(total)}")
     if not runtimes:
         print()
@@ -138,13 +185,13 @@ def main() -> int:
 
     print()
     print("Top chats:")
-    for thread_id, seconds in sorted(by_thread.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {names.get(thread_id, thread_id)}: {format_duration(seconds)}")
+    for chat in top_chats:
+        print(f"- {chat['thread_name']}: {chat['duration']}")
 
     print()
     print("Top projects:")
-    for cwd, seconds in sorted(by_project.items(), key=lambda item: item[1], reverse=True)[: args.limit]:
-        print(f"- {cwd}: {format_duration(seconds)}")
+    for project in top_projects:
+        print(f"- {project['cwd']}: {project['duration']}")
 
     return 0
 

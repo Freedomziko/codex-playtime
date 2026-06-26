@@ -25,6 +25,7 @@ If `python` points to the Microsoft Store alias or is unavailable, use the Codex
 
 ```powershell
 python .\scripts\codex_playtime.py --limit 20
+python .\scripts\codex_playtime.py --json
 python .\scripts\codex_playtime.py --codex-home C:\Users\Name\.codex
 python .\scripts\codex_playtime.py --no-archived
 ```
