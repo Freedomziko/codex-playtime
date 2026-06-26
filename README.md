@@ -40,6 +40,8 @@ python3 ./scripts/codex_playtime.py
 
 The script reads your local Codex data from `~/.codex` by default. It scans both active sessions and archived sessions, then prints total runtime, top chats, and top projects.
 
+If no completed Codex tasks are found, the script prints the Codex home it scanned and explains that runtime appears after Codex records a completed task.
+
 If your Codex home is somewhere else:
 
 ```powershell
